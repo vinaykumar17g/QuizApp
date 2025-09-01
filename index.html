@@ -1,1 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ML Resume Analyzer Quiz</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #f1f5f9;
+            --card-bg-color: #ffffff;
+            --text-color: #1f2937;
+            --placeholder-color: #9ca3af;
+            --border-color: #d1d5db;
+            --blue-600: #2563eb;
+            --blue-700: #1d4ed8;
+            --green-500: #22c55e;
+            --red-500: #ef4444;
+            --gray-300: #d1d5db;
+            --gray-800: #1f2937;
+            --gray-text-color: #4b5563;
+            --scorecard-correct-bg: #d1fae5;
+            --scorecard-incorrect-bg: #fee2e2;
+            --scorecard-text-correct: #166534;
+            --scorecard-text-incorrect: #991b1b;
+            --particle-color: #cbd5e1;
+            --primary-bg: #e0e7ff; /* Light periwinkle from the image */
+            --primary-text: #3730a3; /* Indigo from the image */
+        }
+
+        .dark-theme {
+            --bg-color: #1a202c;
+            --card-bg-color: #2d3748;
+            --text-color: #e2e8f0;
+            --placeholder-color: #a0aec0;
+            --border-color: #4a5568;
+            --blue-600: #667eea;
+            --blue-700: #5a67d8;
+            --green-500: #48bb78;
+            --red-500: #f56565;
+            --gray-300: #4a5568;
+            --gray-800: #e2e8f0;
+            --gray-text-color: #a0aec0;
+            --scorecard-correct-bg: #103126;
+            --scorecard-incorrect-bg: #451b1b;
+            --scorecard-text-correct: #48bb78;
+            --scorecard-text-incorrect: #f56565;
+            --particle-color: #4a5568;
+            --primary-bg: #4c51bf; /* Darker primary for dark mode */
+            --primary-text: #a7aefb;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            position: relative;
+            overflow: hidden;
+            transition: background-color 0.5s ease;
+        }
+
+        #bg-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+        
+        .quiz-container {
+            min-height: 500px;
+            z-index: 1; /* Ensure quiz content is on top of the canvas */
+            position: relative;
+            background-color: var(--card-bg-color);
+            transition: background-color 0.5s ease;
+        }
+        .answer-btn {
+            background-color: var(--card-bg-color);
+            color: var(--text-color);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: transform 0.2s, background-color 0.2s, box-shadow 0.2s;
+        }
+        .answer-btn:not(.no-hover):hover {
+            transform: translateY(-2px);
+            background-color: var(--primary-bg);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            color: var(--primary-text);
+        }
+        /* New styles for permanent color change */
+        .correct-answer-color {
+            background-color: var(--green-500) !important;
+            color: white !important;
+        }
+        .incorrect-answer-color {
+            background-color: var(--red-500) !important;
+            color: white !important;
+        }
+        /* Class to disable pointer events and hover */
+        .no-hover {
+            pointer-events: none;
+            box-shadow: none;
+        }
+        #topic-input::placeholder {
+            color: var(--placeholder-color);
+        }
+        .theme-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 2;
+        }
+        .scorecard-summary-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .scorecard-correct {
+            background-color: var(--scorecard-correct-bg);
+            color: var(--scorecard-text-correct);
+        }
+        .scorecard-incorrect {
+            background-color: var(--scorecard-incorrect-bg);
+            color: var(--scorecard-text-incorrect);
+        }
+        .topic-btn {
+            border: 2px solid var(--primary-bg);
+            color: var(--primary-text);
+        }
+        .topic-btn:hover {
+            background-color: var(--primary-bg);
+            color: var(--primary-text);
+        }
+        .api-badge {
+            background-color: #d1fae5;
+            color: #065f46;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+
+<div class="theme-toggle">
+    <label class="relative inline-flex items-center cursor-pointer">
+      <input type="checkbox" value="" id="theme-switch" class="sr-only peer">
+      <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+    </label>
+</div>
+
+<div id="quiz-container" class="quiz-container w-11/12 max-w-xl p-8 rounded-3xl shadow-2xl flex flex-col justify-between items-center text-center">
+    <!-- Initial topic input form -->
+    <div id="quiz-start" class="w-full flex flex-col items-center">
+        <div class="absolute top-4 right-4 px-4 py-1.5 rounded-full text-xs font-semibold api-badge">
+            Gemini API Connected
+        </div>
+        <h1 class="text-4xl font-extrabold mb-2" style="color: var(--primary-text);">ML Resume Analyzer Quiz</h1>
+        <p class="mb-8" style="color: var(--gray-text-color);">Test your knowledge in different technical fields</p>
+
+        <div class="flex flex-wrap justify-center gap-2 mb-8">
+            <button class="topic-btn px-4 py-2 rounded-full font-semibold transition-colors">Machine Learning</button>
+            <button class="topic-btn px-4 py-2 rounded-full font-semibold transition-colors">Web Development</button>
+            <button class="topic-btn px-4 py-2 rounded-full font-semibold transition-colors">Data Science</button>
+            <button class="topic-btn px-4 py-2 rounded-full font-semibold transition-colors">Software Engineering</button>
+            <button class="topic-btn px-4 py-2 rounded-full font-semibold transition-colors">Cybersecurity</button>
+        </div>
+        
+        <p class="mb-4 text-center" style="color: var(--gray-text-color);">Or enter a custom topic below:</p>
+        <input type="text" id="topic-input" class="w-full max-w-sm px-4 py-3 mb-4 rounded-xl border text-center" style="border-color: var(--border-color); background-color: var(--card-bg-color); color: var(--text-color);" placeholder="e.g., Python">
+        <button id="start-btn" class="w-full max-w-sm px-8 py-4 rounded-xl bg-blue-600 text-white font-semibold shadow-lg transition-colors hover:bg-blue-700">Start Quiz</button>
+    </div>
+
+    <!-- Quiz content will be loaded here -->
+    <div id="quiz-content" class="w-full hidden">
+        <div id="loading" class="text-xl" style="color: var(--text-color);">Loading quiz questions...</div>
+    </div>
+</div>
+
+<script>
+    const quizContainer = document.getElementById('quiz-container');
+    const quizStart = document.getElementById('quiz-start');
+    const topicInput = document.getElementById('topic-input');
+    const startButton = document.getElementById('start-btn');
+    const quizContent = document.getElementById('quiz-content');
+    const themeSwitch = document.getElementById('theme-switch');
+    const topicButtons = document.querySelectorAll('.topic-btn');
+
+    // IMPORTANT: To run this application locally, you must use a web server.
+    // Browsers block API requests from local files (file://) due to security policies.
+    // The easiest way to run a local server is with Python.
+    // 1. Open your terminal or command prompt.
+    // 2. Navigate to the directory where you saved this file.
+    // 3. Run the command: python3 -m http.server
+    // 4. Open your web browser and go to http://localhost:8000/quiz.html
+    // Additionally, you may need to replace the placeholder apiKey with your own key.
+    const apiKey = "AIzaSyAYTNgYaGJ_BLoYthQnu2Mx1nvGswu3XVQ"; // Canvas will provide this automatically.
+    const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=" + apiKey;
+
+    let questions = [];
+    let userAnswers = [];
+    let currentQuestionIndex = 0;
+    const TOTAL_QUESTIONS = 5;
+
+    // Theme toggle logic
+    const currentTheme = localStorage.getItem('theme');
+    if (currentTheme) {
+        document.body.classList.add(currentTheme);
+        if (currentTheme === 'dark-theme') {
+            themeSwitch.checked = true;
+        }
+    }
+
+    themeSwitch.addEventListener('change', () => {
+        if (themeSwitch.checked) {
+            document.body.classList.add('dark-theme');
+            localStorage.setItem('theme', 'dark-theme');
+        } else {
+            document.body.classList.remove('dark-theme');
+            localStorage.setItem('theme', 'light-theme');
+        }
+    });
+
+    // Event listeners for pre-set topic buttons
+    topicButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            fetchQuestions(button.textContent);
+        });
+    });
+
+    // Event listener for the start button with custom topic
+    startButton.addEventListener('click', () => {
+        const topic = topicInput.value.trim();
+        if (topic) {
+            fetchQuestions(topic);
+        } else {
+            console.log('Please enter a quiz topic.');
+        }
+    });
+
+    // This function fetches questions from the Gemini API based on the user's topic
+    async function fetchQuestions(topic) {
+        quizStart.classList.add('hidden');
+        quizContent.classList.remove('hidden');
+        quizContent.innerHTML = `<div id="loading" class="text-xl" style="color: var(--text-color);">Loading quiz questions for "${topic}"...</div>`;
+        
+        const systemPrompt = `You are a quiz master for technical skills. Create a JSON object with a 'questions' key. The value should be an array of ${TOTAL_QUESTIONS} trivia questions about a single technical skill. Each question object must have 'question', 'options' (an array of 4 strings), and 'correct_answer' (one of the strings from 'options').`;
+        const userQuery = `Generate ${TOTAL_QUESTIONS} quiz questions about the technical skill: ${topic}.`;
+
+        const payload = {
+            contents: [{ parts: [{ text: userQuery }] }],
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            generationConfig: {
+                responseMimeType: "application/json",
+            },
+        };
+
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error(`API call failed with status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            const textPart = result.candidates[0].content.parts[0].text;
+            const parsedData = JSON.parse(textPart);
+
+            questions = parsedData.questions;
+            userAnswers = Array(questions.length).fill(null);
+            
+            startQuiz();
+
+        } catch (error) {
+            console.error('Error fetching questions:', error);
+            quizContent.innerHTML = `<div class="text-xl text-red-500">Failed to load quiz. Please try again.</div>`;
+        }
+    }
+
+    // This function initializes and starts the quiz
+    function startQuiz() {
+        currentQuestionIndex = 0;
+        showQuestion();
+    }
+
+    // This function displays the current question and its options
+    function showQuestion() {
+        const currentQuestion = questions[currentQuestionIndex];
+        const hasAnswered = userAnswers[currentQuestionIndex] !== null;
+
+        const questionElement = `
+            <div class="text-lg font-medium mb-4" style="color: var(--gray-text-color);">Question ${currentQuestionIndex + 1} of ${questions.length}</div>
+            <h2 class="text-2xl font-bold mb-8 tracking-tight" style="color: var(--text-color);">${currentQuestion.question}</h2>
+        `;
+
+        const answerButtonsContainer = `
+            <div class="w-full grid grid-cols-1 gap-4" id="answer-buttons">
+                ${currentQuestion.options.map((option, index) => {
+                    let classes = 'answer-btn w-full px-6 py-4 rounded-xl font-semibold shadow-lg transition-all duration-300 text-left';
+                    let isDisabled = '';
+                    
+                    if (hasAnswered) {
+                        isDisabled = 'disabled';
+                        classes += ' no-hover';
+                        if (option === currentQuestion.correct_answer) {
+                            classes += ' correct-answer-color';
+                        } else if (option === userAnswers[currentQuestionIndex]) {
+                            classes += ' incorrect-answer-color';
+                        }
+                    }
+
+                    return `
+                        <button 
+                            class="${classes}"
+                            data-answer="${option}" ${isDisabled}>
+                            ${option}
+                        </button>
+                    `;
+                }).join('')}
+            </div>
+        `;
+
+        const navigationButtons = `
+            <div class="flex justify-between items-center w-full mt-12">
+                <button id="prev-btn" class="px-6 py-3 rounded-xl bg-gray-300 font-semibold shadow-md transition-colors hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed" style="color: var(--text-color);">Previous</button>
+                <button id="next-btn" class="px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold shadow-md transition-colors hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
+            </div>
+        `;
+
+        quizContent.innerHTML = questionElement + answerButtonsContainer + navigationButtons;
+
+        const answerButtons = document.querySelectorAll('.answer-btn');
+        if (!hasAnswered) {
+            answerButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    selectAnswer(button.dataset.answer, button);
+                });
+            });
+        }
+
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        
+        if (prevBtn && nextBtn) {
+            prevBtn.disabled = currentQuestionIndex === 0;
+            if (currentQuestionIndex > 0) {
+                prevBtn.addEventListener('click', () => {
+                    currentQuestionIndex--;
+                    showQuestion();
+                });
+            }
+            
+            nextBtn.disabled = !hasAnswered;
+            if (currentQuestionIndex === questions.length - 1) {
+                nextBtn.textContent = 'Submit';
+                nextBtn.addEventListener('click', showScorecard);
+            } else {
+                nextBtn.addEventListener('click', () => {
+                    currentQuestionIndex++;
+                    showQuestion();
+                });
+            }
+        }
+    }
+
+    // This function handles the user's answer selection
+    function selectAnswer(selectedAnswer, button) {
+        userAnswers[currentQuestionIndex] = selectedAnswer;
+        
+        const correct = questions[currentQuestionIndex].correct_answer;
+        const answerButtons = document.querySelectorAll('.answer-btn');
+
+        answerButtons.forEach(btn => {
+            btn.disabled = true;
+            btn.classList.add('no-hover');
+            
+            if (btn.dataset.answer === correct) {
+                btn.classList.add('correct-answer-color');
+            } else if (btn.dataset.answer === selectedAnswer) {
+                btn.classList.add('incorrect-answer-color');
+            } else {
+                btn.classList.remove('bg-blue-600', 'hover:scale-105', 'hover:bg-blue-700');
+                btn.classList.add('bg-gray-300', 'text-gray-800', 'shadow-none');
+            }
+        });
+
+        const nextBtn = document.getElementById('next-btn');
+        if (nextBtn) {
+            nextBtn.disabled = false;
+        }
+    }
+
+    // This function displays the final scorecard
+    function showScorecard() {
+        let score = 0;
+        questions.forEach((q, index) => {
+            const userAnswer = userAnswers[index];
+            if (userAnswer === q.correct_answer) {
+                score++;
+            }
+        });
+
+        const correctCount = score;
+        const incorrectCount = questions.length - score;
+        const scorePercentage = (score / questions.length) * 100;
+
+        let scorecardHtml = `
+            <h2 class="text-3xl font-bold mb-6" style="color: var(--text-color);">Quiz Results</h2>
+
+            <div class="w-full text-center p-6 rounded-2xl shadow-inner mb-8" style="background-color: var(--card-bg-color);">
+                <p class="text-xl mb-2" style="color: var(--gray-text-color);">Final Score:</p>
+                <p class="text-5xl font-extrabold" style="color: var(--text-color);">${score} / ${questions.length}</p>
+                <p class="text-lg font-medium mt-2" style="color: var(--gray-text-color);">${scorePercentage.toFixed(0)}% Correct</p>
+            </div>
+
+            <div class="w-full flex justify-around gap-4 mb-8">
+                <div class="scorecard-summary-item scorecard-correct">
+                    <p class="text-4xl font-bold">${correctCount}</p>
+                    <p class="text-sm">Correct</p>
+                </div>
+                <div class="scorecard-summary-item scorecard-incorrect">
+                    <p class="text-4xl font-bold">${incorrectCount}</p>
+                    <p class="text-sm">Incorrect</p>
+                </div>
+            </div>
+
+            <div class="w-full text-center mt-6">
+                <button id="restart-btn" class="mt-8 px-8 py-4 rounded-xl bg-blue-600 text-white font-semibold shadow-lg transition-colors hover:bg-blue-700">Start New Quiz</button>
+            </div>
+        `;
+        
+        quizContent.innerHTML = scorecardHtml;
+        document.getElementById('restart-btn').addEventListener('click', () => {
+            quizStart.classList.remove('hidden');
+            quizContent.classList.add('hidden');
+            topicInput.value = '';
+        });
+    }
+
+    // Particle background animation
+    const canvas = document.getElementById('bg-canvas');
+    const ctx = canvas.getContext('2d');
+
+    const particles = [];
+    const particleCount = 70;
+    const maxLineDistance = 150;
+
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    class Particle {
+        constructor() {
+            this.x = Math.random() * canvas.width;
+            this.y = Math.random() * canvas.height;
+            this.vx = (Math.random() - 0.5) * 0.5;
+            this.vy = (Math.random() - 0.5) * 0.5;
+            this.color = getComputedStyle(document.body).getPropertyValue('--particle-color');
+            this.radius = Math.random() * 2 + 1;
+        }
+
+        draw() {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = this.color;
+            ctx.fill();
+        }
+
+        update() {
+            this.x += this.vx;
+            this.y += this.vy;
+
+            if (this.x > canvas.width || this.x < 0) this.vx *= -1;
+            if (this.y > canvas.height || this.y < 0) this.vy *= -1;
+        }
+    }
+
+    function createParticles() {
+        for (let i = 0; i < particleCount; i++) {
+            particles.push(new Particle());
+        }
+    }
+
+    function connectParticles() {
+        for (let a of particles) {
+            for (let b of particles) {
+                const dx = a.x - b.x;
+                const dy = a.y - b.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < maxLineDistance) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = `rgba(203, 213, 225, ${1 - distance / maxLineDistance})`;
+                    ctx.lineWidth = 1;
+                    ctx.moveTo(a.x, a.y);
+                    ctx.lineTo(b.x, b.y);
+                    ctx.stroke();
+                }
+            }
+        }
+    }
+
+    function animateParticles() {
+        requestAnimationFrame(animateParticles);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        particles.forEach(p => p.update());
+        connectParticles();
+        particles.forEach(p => p.draw());
+    }
+    
+    createParticles();
+    animateParticles();
+</script>
+
+</body>
+</html>
 
